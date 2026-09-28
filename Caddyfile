@@ -1,0 +1,6 @@
+# Automatic HTTPS for {$SME_DOMAIN}. Make sure its DNS points here and
+# ports 80 + 443 are reachable, or certificate issuance will fail.
+{$SME_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy server:8080
+}

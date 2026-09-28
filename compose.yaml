@@ -1,0 +1,50 @@
+# SyncMyEnv — self-hosted server with automatic HTTPS (Caddy + Let's Encrypt).
+#
+#   cp .env.example .env        # set SME_DOMAIN
+#   docker compose up -d
+#   docker compose logs server  # → first-run setup code
+#
+# Behind your own reverse proxy (Traefik, nginx, Cloudflare Tunnel…)?
+# Use compose.behind-proxy.yaml instead.
+name: syncmyenv
+
+services:
+  server:
+    image: ghcr.io/syncmyenv/server:${SME_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      SME_BASE_URL: ${SME_BASE_URL:-https://${SME_DOMAIN:?set SME_DOMAIN in .env}}
+      SME_TRUST_PROXY: "1" # Caddy sets X-Forwarded-For (rate limits, audit log IPs)
+    volumes:
+      - data:/data
+    expose:
+      - "8080"
+    # hardening: the server only writes to /data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      server:
+        condition: service_healthy
+    environment:
+      SME_DOMAIN: ${SME_DOMAIN:?set SME_DOMAIN in .env}
+    ports:
+      - "${SME_HTTP_PORT:-80}:80"
+      - "${SME_HTTPS_PORT:-443}:443"
+      - "${SME_HTTPS_PORT:-443}:443/udp" # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data     # certificates — keep this volume
+      - caddy_config:/config
+
+volumes:
+  data:        # the SyncMyEnv database (ciphertext only) — back it up
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,29 @@
+# SyncMyEnv — self-hosted server for use behind YOUR reverse proxy
+# (Traefik, nginx, Caddy, Cloudflare Tunnel, Tailscale Serve…).
+#
+#   docker compose -f compose.behind-proxy.yaml up -d
+#
+# Point your proxy at http://127.0.0.1:8080 and serve it over HTTPS:
+# `sme login` refuses plain http for public hostnames.
+name: syncmyenv
+
+services:
+  server:
+    image: ghcr.io/syncmyenv/server:${SME_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      SME_BASE_URL: ${SME_BASE_URL:-https://${SME_DOMAIN:?set SME_DOMAIN (or SME_BASE_URL) in .env}}
+      SME_TRUST_PROXY: "1" # only safe if the port is reachable by your proxy alone
+    volumes:
+      - data:/data
+    ports:
+      - "${SME_BIND:-127.0.0.1}:${SME_PORT:-8080}:8080"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  data:
